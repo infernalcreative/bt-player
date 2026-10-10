@@ -65,7 +65,6 @@ sudo apt install -y bluez bluealsa mpg123 lame
 fastapi
 uvicorn
 pydantic
-aiofiles
 ```
 
 ## Быстрый тест из консоли
