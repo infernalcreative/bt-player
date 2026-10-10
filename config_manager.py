@@ -1,4 +1,3 @@
-# /opt/bt-player/config_manager.py
 import os
 import configparser
 from dataclasses import dataclass
@@ -18,6 +17,7 @@ class ConfigManager:
         # Настройки по умолчанию на случай, если секция SETTINGS пуста
         self.mp3_dir = "/opt/bt-player/mp3"
         self.model_path = "/opt/bt-player/models/voice.onnx"
+        self.piper_binary = "/opt/bt-player/venv/bin/piper"
 
     def load_config(self):
         """Парсит секции SETTINGS и SPEAKERS из файла конфигурации."""
@@ -33,7 +33,8 @@ class ConfigManager:
         if "SETTINGS" in config:
             self.mp3_dir = config["SETTINGS"].get("mp3_dir", self.mp3_dir).strip()
             self.model_path = config["SETTINGS"].get("model_path", self.model_path).strip()
-            print(f"[Config] Настройки: MP3_DIR={self.mp3_dir}, MODEL_PATH={self.model_path}")
+            self.piper_binary = config["SETTINGS"].get("piper_binary", self.piper_binary).strip()
+            print(f"[Config] Настройки: MP3_DIR={self.mp3_dir}, MODEL_PATH={self.model_path}, PIPER_BINARY={self.piper_binary}")
 
         # 2. Читаем настройки колонок
         self.speakers.clear()

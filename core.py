@@ -1,4 +1,3 @@
-# /opt/bt-player/core.py
 import asyncio
 import os
 import subprocess
@@ -16,8 +15,6 @@ class CoreEngine:
     def __init__(self, max_queue_size: int = 20):
         self._queue = asyncio.Queue(maxsize=max_queue_size)
         self._worker_task = None
-        # Путь к бинарнику piper внутри вашего виртуального окружения
-        self.piper_binary = "/opt/bt-player/venv/bin/piper"
 
     async def start(self):
         """Запуск фонового обработчика."""
@@ -46,10 +43,10 @@ class CoreEngine:
                     temp_wav = f"/tmp/tts_{timestamp}.wav"
                     target_file_path = f"/tmp/tts_{timestamp}.mp3"
 
-                    # Генерация через системный CLI Piper + конвертация Lame
+                    # Генерация через системный CLI Piper + конвертация Lame (Ваша изначальная логика)
                     def generate_cli_tts():
-                        # Запускаем piper, передавая текст на стандартный вход stdin
-                        cmd = [self.piper_binary, "--model", config_manager.model_path, "--output_file", temp_wav]
+                        # ПУТЬ ТЕПЕРЬ БЕРЕТСЯ ИЗ config_manager.piper_binary
+                        cmd = [config_manager.piper_binary, "--model", config_manager.model_path, "--output_file", temp_wav]
                         proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                         proc.communicate(input=task.payload.encode('utf-8'))
                         
@@ -57,7 +54,7 @@ class CoreEngine:
                         if os.path.exists(temp_wav):
                             subprocess.run(["lame", "--silent", temp_wav, target_file_path], check=False)
                             try:
-                                os.remove(temp_wav)  # Сразу удаляем WAV из ОЗУ
+                                os.remove(temp_wav)  # Сразу удаляем WAV из памяти/диска
                             except:
                                 pass
 
@@ -83,7 +80,7 @@ class CoreEngine:
                         except: pass
                     continue
 
-                # Даем Bluetooth-чипу Allwinner время зарегистрировать аудио-транспорт в системе
+                # Даем Bluetooth-чипу время зарегистрировать аудио-транспорт в системе
                 await asyncio.sleep(2.0)
 
                 # 4. Управление громкостью ДО воспроизведения
@@ -93,20 +90,20 @@ class CoreEngine:
                 else:
                     print(f"[Core] Громкость в конфиге 0. Воспроизведение на текущих настройках устройства.")
 
-                # 5. Воспроизведение звука через надежный mpg123
+                # 5. Воспроизведение звука через mpg123
                 try:
                     await asyncio.to_thread(utils.play_audio, cfg.mac_raw, target_file_path)
                 except Exception as e:
                     print(f"[Core] Ошибка при проигрывании: {e}")
                 finally:
-                    # 6. Финальный блок: возврат громкости, отключение и очистка ОЗУ
+                    # 6. Финальный блок: возврат громкости, отключение и очистка
                     if manage_volume:
                         await asyncio.to_thread(utils.set_dbus_volume, cfg.default_volume, cfg.mac_dbus)
                         await asyncio.sleep(0.5)
                     
                     await asyncio.to_thread(utils.manage_bluetooth, "disconnect", cfg.mac_raw)
                     
-                    # Удаляем временный MP3 из папки /tmp, чтобы не забивать память платы
+                    # Удаляем временный MP3 из папки /tmp
                     if task.task_type == "tts" and os.path.exists(target_file_path):
                         try:
                             os.remove(target_file_path)
