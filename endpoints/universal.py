@@ -3,7 +3,7 @@ from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
 from core import core_engine
 
-# Убираем префикс /api/v1
+
 router = APIRouter(tags=["Universal Player"])
 
 class TTSRequest(BaseModel):
