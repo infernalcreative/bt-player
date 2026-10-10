@@ -7,7 +7,7 @@ router = APIRouter(tags=["Kettle Plugin"])
 
 @router.post("/notify/kettlemini")
 async def notify_kettle():
-    # Отправляем в ядро: имя колонки, имя mp3-файла, флаг громкости (1)
+    # Отправляем в ядро: имя колонки, имя mp3-файла
     success = core_engine.add_task(
         task_type="file",
         speaker_name="mini",
