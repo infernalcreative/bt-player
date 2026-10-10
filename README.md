@@ -141,5 +141,9 @@ curl -X POST "http://ip:port/notify/kettlemini"
 * ./setup.sh
 
 ## 
-
+* Заранее нужно сделать сопряжение устройств через bluetoothctl
+* pair 00:00:00:00:00:00
+* trust 00:00:00:00:00:00
+* connect 00:00:00:00:00:00
+##
 * Протестировано на orange pi zero 3, armbian (trixie)
