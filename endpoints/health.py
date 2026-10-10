@@ -1,6 +1,5 @@
 # /opt/bt-player/endpoints/health.py
 from fastapi import APIRouter, HTTPException, status
-import utils
 import asyncio
 
 router = APIRouter(prefix="/status", tags=["Health"])
