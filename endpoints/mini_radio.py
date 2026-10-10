@@ -8,7 +8,7 @@ import asyncio
 router = APIRouter(prefix="/radio", tags=["Radio NRJ Plugin"])
 
 SPEAKER_NAME = "mini"
-STREAM_URL = "http://radiosyeamurl"
+STREAM_URL = "http://radio.sevstar.net:8000/energia"
 
 @router.post("/mini_nrj")
 async def play_radio_nrj():
@@ -31,7 +31,7 @@ async def play_radio_nrj():
 
     # 4. Запускаем бесконечный поток радио в фоновом режиме (не блокирует FastAPI и очередь)
     try:
-        utils.play_radio(cfg.mac_raw, STREAM_URL)
+        utils.play_stream(cfg.mac_raw, STREAM_URL)
     except Exception as e:
         print(f"[Radio] Ошибка фонового запуска потока: {e}")
         raise HTTPException(

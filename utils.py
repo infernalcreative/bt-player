@@ -81,3 +81,30 @@ def stop_all_mpg123():
     """Принудительно гасит фоновое радио или плеер."""
     subprocess.run(["pkill", "-9", "mpg123"], check=False)
 
+def play_stream(mac_raw: str, audio_file_path: str):
+    """Запускает проигрывание радио/потока через mpg123 в фоновом режиме (асинхронно / не блокирует FastAPI)"""
+    # Гасим предыдущие процессы mpg123 перед запуском радио
+    subprocess.run(["pkill", "-9", "mpg123"], check=False)
+
+    play_cmd = [
+        "mpg123",
+        "-a",
+        f"bluealsa:DEV={mac_raw},PROFILE=a2dp",
+        audio_file_path,
+    ]
+    try:
+        print(
+            f"[Utils] Фоновый запуск потока {audio_file_path} через BlueALSA..."
+        )
+        subprocess.Popen(
+            play_cmd,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,
+        )
+    except Exception as e:
+        print(f"[Utils] Ошибка фонового запуска mpg123: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Ошибка при фоновом запуске {audio_file_path}.",
+        )
