@@ -50,7 +50,7 @@ graph TD
 * bluealsa (или альтернативный вывод A2DP)
 * mpg123 (проигрыватель)
 * lame (конвертация WAV → MP3)
-* Piper TTS (бинарник или Python‑обёртка)
+* Piper TTS (Python‑обёртка)
 
 ### Установка системных пакетов (Debian/Ubuntu):
 
