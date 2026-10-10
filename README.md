@@ -135,6 +135,12 @@ curl -X POST "http://ip:port/say" \
 ```bash
 curl -X POST "http://ip:port/notify/kettlemini"
 ```
+* **Эндпоинт:** `/status/health`
+*  **Метод** `POST`
+*  **Описание:** Проверка состояния (`endpoints/health.py`)
+  ```bash
+curl -X POST http://ip:port/status/health
+```
 
 ## Поведение колонок по умолчанию
 
