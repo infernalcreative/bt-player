@@ -47,7 +47,7 @@ graph TD
 * Python 3.10+
 * FastAPI + Uvicorn
 * BlueZ + D-Bus (для управления Bluetooth)
-* bluealsa (или альтернативный вывод A2DP)
+* bluealsa
 * mpg123 (проигрыватель)
 * lame (конвертация WAV → MP3)
 * Piper TTS (Python‑обёртка)
