@@ -8,7 +8,7 @@ import asyncio
 router = APIRouter(prefix="/radio", tags=["Radio NRJ Plugin"])
 
 SPEAKER_NAME = "mini"
-STREAM_URL = "http://radio.sevstar.net:8000/energia"
+STREAM_URL = "http://streamurl"
 
 @router.post("/mini_nrj")
 async def play_radio_nrj():
