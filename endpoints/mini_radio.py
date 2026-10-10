@@ -1,17 +1,17 @@
-# /opt/bt-player/endpoints/mini_radio_enj.py
+# /opt/bt-player/endpoints/mini_radio.py
 from fastapi import APIRouter, HTTPException, status
 from config_manager import config_manager
 import utils
 import asyncio
 
-# Сохраняем префикс /radio, итоговый путь: POST /radio/mini_nrj
-router = APIRouter(prefix="/radio", tags=["Radio NRJ Plugin"])
+# Сохраняем префикс /radio, итоговый путь: POST /radio/mini_radio
+router = APIRouter(prefix="/radio", tags=["Radio Plugin"])
 
 SPEAKER_NAME = "mini"
 STREAM_URL = "http://streamurl"
 
-@router.post("/mini_nrj")
-async def play_radio_nrj():
+@router.post("/mini_radio")
+async def play_radio():
     # 1. Получаем актуальные параметры колонки из центрального конфига
     cfg = config_manager.get_speaker(SPEAKER_NAME)
     if not cfg:
