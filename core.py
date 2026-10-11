@@ -43,7 +43,7 @@ class CoreEngine:
                     temp_wav = f"/tmp/tts_{timestamp}.wav"
                     target_file_path = f"/tmp/tts_{timestamp}.mp3"
 
-                    # Генерация через системный CLI Piper + конвертация Lame (Ваша изначальная логика)
+                    # Генерация через системный CLI Piper + конвертация Lame
                     def generate_cli_tts():
                         # ПУТЬ ТЕПЕРЬ БЕРЕТСЯ ИЗ config_manager.piper_binary
                         cmd = [config_manager.piper_binary, "--model", config_manager.model_path, "--output_file", temp_wav]
