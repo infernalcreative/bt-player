@@ -64,6 +64,7 @@ def play_audio(mac_raw: str, audio_file_path: str) -> bool:
     play_cmd = [
         "mpg123", 
         "-o", "alsa",  # Запрещает плееру падать в Segmentation fault
+	"-b", "1024", # Буфер
         "-a", f"bluealsa:DEV={mac_raw},PROFILE=a2dp",
         audio_file_path,
     ]
