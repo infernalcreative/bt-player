@@ -62,7 +62,7 @@ graph TD
 
 ```bash
 sudo apt update
-sudo apt install -y bluez bluealsa alsa-utils lame
+sudo apt install -y bluez bluealsa alsa-utils
 ```
 
 ### Python‑зависимости (пример requirements.txt):
