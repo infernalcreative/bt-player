@@ -30,9 +30,10 @@ class CoreEngine:
                 "--output_raw"
             ]
             # Задаем переменные окружения для оптимизации потоков ONNX
+            # Если 4 ядра, 2 задействуем и 2 оставляем системе
             env = os.environ.copy()
-            env["OMP_NUM_THREADS"] = "2"
-            env["ONNXRUNTIME_INTRA_OP_NUM_THREADS"] = "2"
+            env["OMP_NUM_THREADS"] = "2" # используем 2 
+            env["ONNXRUNTIME_INTRA_OP_NUM_THREADS"] = "2" # используем 2
 
             # Запускаем долгоживущий процесс
             self._piper_proc = subprocess.Popen(
