@@ -33,6 +33,7 @@ apt-get install -y \
     python3-venv \
     python3-pip \
     alsa-utils \
+    mpg123 \
     wget
 
 echo "[System] Системные утилиты Linux успешно установлены."

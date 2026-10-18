@@ -48,7 +48,7 @@ graph TD
 * FastAPI + Uvicorn
 * BlueZ + D-Bus (для управления Bluetooth)
 * bluealsa
-* aplay (проигрыватель)
+* aplay&mpg123 (проигрыватель)
 * Piper TTS (Python‑обёртка)
 ## 
 * Предварительно настроенные bluez и bluealsa — для управления Bluetooth-устройствами и трансляции звука через профиль A2DP
@@ -61,7 +61,7 @@ graph TD
 
 ```bash
 sudo apt update
-sudo apt install -y bluez bluealsa alsa-utils
+sudo apt install -y bluez bluealsa alsa-utils mpg133
 ```
 
 ### Python‑зависимости (пример requirements.txt):

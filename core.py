@@ -27,7 +27,7 @@ class CoreEngine:
             piper_cmd = [
                 config_manager.piper_binary, 
                 "--model", config_manager.model_path, 
-                "--output_file", "-"
+                "--output_raw"
             ]
             # Задаем переменные окружения для оптимизации потоков ONNX
             env = os.environ.copy()
@@ -84,109 +84,132 @@ class CoreEngine:
             finally:
                 self._piper_proc = None
 
-
     async def _worker_loop(self):
         while True:
             task: AudioTask = await self._queue.get()
             try:
+                # 1. Получаем конфигурацию колонки
                 cfg: SpeakerConfig = config_manager.get_speaker(task.speaker_name)
                 if not cfg:
-                    print(f"[Core] Ошибка: Колонка '{task.speaker_name}' не найдена.")
+                    print(f"[Core] Ошибка: Колонка '{task.speaker_name}' не найдена в speakers.conf")
                     continue
 
                 print(f"[Core] Обработка задачи [{task.task_type}] для колонки '{task.speaker_name}'")
                 manage_volume = cfg.active_volume > 0 and cfg.default_volume > 0
-                audio_bytes_data = None
 
-                # 2. Мгновенная генерация из уже загруженной модели
-                if task.task_type == "tts":
-                    def generate_via_persistent_piper():
-                        # Проверяем, живой ли процесс
-                        if self._piper_proc.poll() is not None:
-                            print("[Core] Перезапуск упавшего процесса Piper...")
-                            self._piper_proc = subprocess.Popen(
-                                [config_manager.piper_binary, "--model", config_manager.model_path, "--output_file", "-"],
-                                stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL
-                            )
+                # ВАЖНО: Если процесс Piper упал, перезапускаем его СТРОГО с флагом --output-raw
+                if task.task_type == "tts" and (not self._piper_proc or self._piper_proc.poll() is not None):
+                    print("[Core] Перезапуск или инициализация процесса Piper в режиме RAW...")
+                    piper_cmd = [
+                        config_manager.piper_binary, 
+                        "--model", config_manager.model_path, 
+                        "--output-raw"  # <--- Ключевое изменение: гоним чистый PCM 16-bit mono 22050Hz
+                    ]
+                    env = os.environ.copy()
+                    env["OMP_NUM_THREADS"] = "2"
+                    env["ONNXRUNTIME_INTRA_OP_NUM_THREADS"] = "2"
+                    
+                    self._piper_proc = subprocess.Popen(
+                        piper_cmd,
+                        stdin=subprocess.PIPE,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.DEVNULL,
+                        env=env
+                    )
 
-                        # Очищаем текст от переносов и обязательно добавляем ОДИН '\n' в конце.
-                        # Символ '\n' сигнализирует Piper, что блок текста завершен и нужно начать синтез.
-                        clean_text = task.payload.replace("\n", " ").strip() + "\n"
-                        
-                        # Пишем в stdin живого процесса
-                        self._piper_proc.stdin.write(clean_text.encode('utf-8'))
-                        self._piper_proc.stdin.flush()
-
-                        # Читаем сырые WAV-байты. 
-                        # ВАЖНО: communicate() использовать нельзя, так как он закроет процесс.
-                        # Используем чтение заголовка и данных. Для стандартного Piper (22050Hz, 16bit, mono):
-                        # Читаем первые 44 байта (WAV Header), чтобы узнать размер данных, либо читаем до конца фрейма.
-                        # Но так как Piper выдает ровно один WAV файл на строку, мы можем прочитать данные,
-                        # зная, что Piper завершает вывод определенным образом, либо считывая структуру чанков.
-                        # Упрощенный стабильный вариант для Piper: он отдает весь WAV-контейнер целиком для одной строки.
-                        # Чтобы не заблокироваться на read(), надежнее использовать обертку или читать заголовок:
-                        
-                        header = self._piper_proc.stdout.read(44)
-                        if not header:
-                            return None
-                        
-                        # Извлекаем размер данных из WAV заголовка (байты 40-44)
-                        data_size = int.from_bytes(header[40:44], byteorder='little')
-                        
-                        # Дочитываем оставшиеся аудио-байты
-                        wav_data = self._piper_proc.stdout.read(data_size)
-                        return header + wav_data
-
-                    audio_bytes_data = await asyncio.to_thread(generate_via_persistent_piper)
-
-                    if not audio_bytes_data:
-                        print("[Core] Ошибка: Не удалось получить поток от Piper.")
-                        continue
-
-                elif task.task_type == "file":
-                    target_file_path = os.path.join(config_manager.mp3_dir, f"{task.payload}.mp3")
-                    if not os.path.exists(target_file_path):
-                        continue
-                    audio_bytes_data = await asyncio.to_thread(lambda: open(target_file_path, "rb").read())
-
-                # 3. Подключение к Bluetooth
+                # 3. Подключение к Bluetooth ДО начала генерации звука
                 connected = await asyncio.to_thread(utils.manage_bluetooth, "connect", cfg.mac_raw)
                 if not connected:
+                    print(f"[Core] Пропуск задачи: Не удалось подключиться к {cfg.mac_raw}")
                     continue
 
-                # Оптимизированная пауза для Allwinner (снизили до 1.2 сек)
+                # Даем Bluetooth-чипу Allwinner время зарегистрировать аудио-транспорт
                 await asyncio.sleep(1.2)
 
-                # 4. Управление громкостью (снизили паузу до 0.15 сек)
+                # 4. Управление громкостью ДО воспроизведения
                 if manage_volume:
                     await asyncio.to_thread(utils.set_dbus_volume, cfg.active_volume, cfg.mac_dbus)
                     await asyncio.sleep(0.15)
 
-                # 5. Воспроизведение звука из ОЗУ через проверенный aplay / mpg123
+                # 5. Воспроизведение звука
                 try:
-                    def stream_audio_to_speaker():
-                        if task.task_type == "tts":
-                            play_cmd = ["aplay", "-D", f"bluealsa:DEV={cfg.mac_raw},PROFILE=a2dp", "-"]
-                        else:
-                            play_cmd = ["mpg123", "-o", "alsa", "-a", f"bluealsa:DEV={cfg.mac_raw},PROFILE=a2dp", "-"]
-                        
-                        proc = subprocess.Popen(play_cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                        proc.communicate(input=audio_bytes_data)
+                    if task.task_type == "tts":
+                        def stream_tts_direct_to_aplay():
+                            print(f"[Core] Стриминг TTS напрямую из Piper в aplay...")
+                            # Настраиваем aplay на воспроизведение RAW PCM потока (16 бит, Little Endian, Моно, 22050 Гц)
+                            play_cmd = [
+                                "aplay", 
+                                "-D", f"bluealsa:DEV={cfg.mac_raw},PROFILE=a2dp",
+                                "-t", "raw",
+                                "-f", "S16_LE",
+                                "-r", "22050",
+                                "-c", "1"
+                            ]
+                            
+                            # Запускаем плеер, его stdin будет принимать данные
+                            aplay_proc = subprocess.Popen(play_cmd, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
+                            
+                            # Готовим и отправляем текст в Piper
+                            clean_text = task.payload.replace("\n", " ").strip() + "\n"
+                            self._piper_proc.stdin.write(clean_text.encode('utf-8'))
+                            self._piper_proc.stdin.flush()
+                            
+                            # Читаем данные из Piper и тут же перенаправляем их в aplay
+                            # Метод read1() или итерация по небольшим блокам решает проблему буферизации
+                            while True:
+                                # Читаем чанк данных из Piper (до 4096 байт за раз)
+                                chunk = self._piper_proc.stdout.read1(4096)
+                                if not chunk:
+                                    break
+                                
+                                # Отправляем этот чанк в плеер
+                                aplay_proc.stdin.write(chunk)
+                                aplay_proc.stdin.flush()
+                                
+                                # Хак для Piper: если буфер пуст, значит фраза полностью сгенерирована и отдана
+                                if len(chunk) < 4096:
+                                    break
 
-                    await asyncio.to_thread(stream_audio_to_speaker)
+                            # Закрываем пайп плеера, чтобы он корректно завершил работу
+                            if aplay_proc.stdin:
+                                aplay_proc.stdin.close()
+                            aplay_proc.wait()
+
+                        await asyncio.to_thread(stream_tts_direct_to_aplay)
+
+                    elif task.task_type == "file":
+                        # Воспроизведение старых MP3 файлов (оставляем чтение в ОЗУ для mpg123)
+                        target_file_path = os.path.join(config_manager.mp3_dir, f"{task.payload}.mp3")
+                        if os.path.exists(target_file_path):
+                            with open(target_file_path, "rb") as f:
+                                audio_bytes_data = f.read()
+
+                            def stream_mp3_to_speaker():
+                                print(f"[Core] Запуск mpg123 для воспроизведения MP3 файла из ОЗУ...")
+                                play_cmd = ["mpg123", "-o", "alsa", "-a", f"bluealsa:DEV={cfg.mac_raw},PROFILE=a2dp", "-"]
+                                proc = subprocess.Popen(play_cmd, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
+                                proc.communicate(input=audio_bytes_data)
+
+                            await asyncio.to_thread(stream_mp3_to_speaker)
+                        else:
+                            print(f"[Core] Ошибка: Файл '{target_file_path}' отсутствует.")
+
                 except Exception as e:
-                    print(f"[Core] Ошибка воспроизведения: {e}")
+                    print(f"[Core] Ошибка при проигрывании: {e}")
                 finally:
+                    # 6. Финальный блок: возврат громкости и отключение колонки
                     if manage_volume:
                         await asyncio.to_thread(utils.set_dbus_volume, cfg.default_volume, cfg.mac_dbus)
                         await asyncio.sleep(0.15)
+                    
                     await asyncio.to_thread(utils.manage_bluetooth, "disconnect", cfg.mac_raw)
-                    audio_bytes_data = None
+                    print(f"[Core] Сессия воспроизведения для '{task.speaker_name}' успешно закрыта.")
 
             except Exception as e:
-                print(f"[Core] Ошибка в цикле: {e}")
+                print(f"[Core] Критическая ошибка в цикле воркера: {e}")
             finally:
                 self._queue.task_done()
+
 
     def add_task(self, task_type: str, speaker_name: str, payload: str) -> bool:
         if not config_manager.get_speaker(speaker_name):
