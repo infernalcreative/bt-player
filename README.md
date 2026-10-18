@@ -1,6 +1,6 @@
 # BT Player — FastAPI сервис для воспроизведения аудио на Bluetooth‑колонках
 
-Сервис принимает HTTP‑запросы, ставит задачи в очередь, синтезирует речь (Piper TTS) или проигрывает готовые MP3, затем отправляет звук на указанную Bluetooth‑колонку через bluealsa + aplay.
+Сервис принимает HTTP‑запросы, ставит задачи в очередь, синтезирует речь (Piper TTS) или проигрывает готовые MP3, затем отправляет звук на указанную Bluetooth‑колонку через bluealsa + aplay или mpg123
 
 ## Архитектура
 
@@ -61,7 +61,7 @@ graph TD
 
 ```bash
 sudo apt update
-sudo apt install -y bluez bluealsa alsa-utils mpg133
+sudo apt install -y bluez bluealsa alsa-utils mpg123
 ```
 
 ### Python‑зависимости (пример requirements.txt):
