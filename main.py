@@ -29,19 +29,26 @@ def load_dynamic_endpoints(app_instance: FastAPI):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print("[Engine] Старт инициализации приложения...")
-    
+
     # 1. Загружаем карту колонок из конфигурационного файла
     config_manager.load_config()
-    
+
     # 2. Запускаем фоновый воркер обработки очереди звука
     await core_engine.start()
-    
+
     # 3. Динамически загружаем плагины СТРОГО внутри lifespan активного процесса
     # Это предотвращает двойной импорт при использовании uvicorn reload=True
     load_dynamic_endpoints(app)
-    
+
     yield
+    
+    # --- БЛОК ОСТАНОВКИ И ОЧИСТКИ ЗОМБИ-ПРОЦЕССОВ ---
     print("[Engine] Остановка приложения. Освобождение ресурсов...")
+    try:
+        core_engine.stop()
+        print("[Engine] Ресурсы фонового ядра успешно освобождены.")
+    except Exception as e:
+        print(f"[Engine] Ошибка при остановке фонового ядра: {e}")
 
 # Создаем приложение FastAPI с поддержкой lifespan
 app = FastAPI(title="Plugin-Based Smart Notifier", lifespan=lifespan)

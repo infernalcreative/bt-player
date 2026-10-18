@@ -50,6 +50,41 @@ class CoreEngine:
         self._worker_task = asyncio.create_task(self._worker_loop())
         print("[Core] Фоновое ядро очереди запущено.")
 
+    def stop(self):
+        """Мягкое завершение процесса Piper и фонового воркера."""
+        print("[Core] Останавливаем фоновое ядро...")
+        
+        # 1. Отменяем асинхронный воркер очереди
+        if self._worker_task:
+            self._worker_task.cancel()
+
+        # 2. Корректно завершаем процесс Piper
+        if self._piper_proc:
+            try:
+                print("[Core] Закрываем пайпы и завершаем процесс Piper...")
+                # Закрываем потоки ввода-вывода, чтобы Piper понял, что пора выходить
+                if self._piper_proc.stdin:
+                    self._piper_proc.stdin.close()
+                if self._piper_proc.stdout:
+                    self._piper_proc.stdout.close()
+                
+                # Посылаем сигнал SIGTERM (мягкое завершение)
+                self._piper_proc.terminate()
+                
+                # Ждем завершения в течение 2 секунд
+                self._piper_proc.wait(timeout=2.0)
+                print("[Core] Процесс Piper успешно завершен.")
+            except subprocess.TimeoutExpired:
+                # Если процесс завис и не вышел по-хорошему, убиваем его жестко (SIGKILL)
+                print("[Core] Внимание: Piper не завершился вовремя. Принудительное уничтожение (SIGKILL)...")
+                self._piper_proc.kill()
+                self._piper_proc.wait()
+            except Exception as e:
+                print(f"[Core] Ошибка при остановке Piper: {e}")
+            finally:
+                self._piper_proc = None
+
+
     async def _worker_loop(self):
         while True:
             task: AudioTask = await self._queue.get()
