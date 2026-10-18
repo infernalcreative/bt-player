@@ -49,7 +49,6 @@ graph TD
 * BlueZ + D-Bus (для управления Bluetooth)
 * bluealsa
 * aplay (проигрыватель)
-* lame (конвертация WAV → MP3)
 * Piper TTS (Python‑обёртка)
 ## 
 * Предварительно настроенные bluez и bluealsa — для управления Bluetooth-устройствами и трансляции звука через профиль A2DP
