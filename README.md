@@ -1,6 +1,6 @@
 # BT Player — FastAPI сервис для воспроизведения аудио на Bluetooth‑колонках
 
-Сервис принимает HTTP‑запросы, ставит задачи в очередь, синтезирует речь (Piper TTS) или проигрывает готовые MP3, затем отправляет звук на указанную Bluetooth‑колонку через bluealsa + mpg123.
+Сервис принимает HTTP‑запросы, ставит задачи в очередь, синтезирует речь (Piper TTS) или проигрывает готовые MP3, затем отправляет звук на указанную Bluetooth‑колонку через bluealsa + aplay.
 
 ## Архитектура
 
@@ -48,7 +48,7 @@ graph TD
 * FastAPI + Uvicorn
 * BlueZ + D-Bus (для управления Bluetooth)
 * bluealsa
-* mpg123 (проигрыватель)
+* aplay (проигрыватель)
 * lame (конвертация WAV → MP3)
 * Piper TTS (Python‑обёртка)
 ## 
@@ -62,7 +62,7 @@ graph TD
 
 ```bash
 sudo apt update
-sudo apt install -y bluez bluealsa mpg123 lame
+sudo apt install -y bluez bluealsa alsa-utils lame
 ```
 
 ### Python‑зависимости (пример requirements.txt):
@@ -75,23 +75,10 @@ pydantic
 
 ## Быстрый тест из консоли
 
-### 1. Синтез речи и конвертация в MP3:
+### 1. Синтез речи и воспроизведение:
 
 ```bash
-echo "Проверка работы через консоль" | \
-  /opt/bt-player/venv/bin/piper \
-  --model /opt/bt-player/models/voice.onnx \
-  --output_file /tmp/test.wav
-
-lame --silent /tmp/test.wav /tmp/test.mp3
-```
-
-### 2. Подключение и воспроизведение на колонке:
-
-```bash
-bluetoothctl connect 00:00:00:00:00:00
-sleep 2
-mpg123 -o alsa -a "bluealsa:DEV=54:F2:9F:0B:48:BC,PROFILE=a2dp" /tmp/test.mp3
+echo "Проверка работы через консоль" | /opt/bt-player/venv/bin/piper --model /opt/bt-player/models/voice.onnx --output_file - | aplay -D bluealsa:DEV=54:F2:9F:0B:48:BC,PROFILE=a2dp
 ```
 
 ## API Эндпоинты
